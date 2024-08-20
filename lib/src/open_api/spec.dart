@@ -618,7 +618,18 @@ Map<String, dynamic> _formatSpecFromJson({
   // Handle allOf
   if (m.containsKey('allOf')) {
     var s = _SchemaConverter().fromJson(m).mapOrNull(object: (s) {
-      return s.copyWith(ref: s.allOf?.firstOrNull?.ref);
+      final allOf = s.allOf;
+      if (allOf == null || allOf.isEmpty) return s;
+      if (allOf.length == 1) {
+        return s.copyWith(ref: s.allOf?.firstOrNull?.ref);
+      }
+      final refCount = allOf.where((e) => e.ref != null).length;
+      if (refCount == 1) {
+        return s.copyWith(ref: allOf.firstOrNull?.ref);
+      } else {
+        // if at least 2 allOf schemas are references then we can't set a ref
+        return s;
+      }
     });
     if (s != null) {
       final newData = s.toJson();

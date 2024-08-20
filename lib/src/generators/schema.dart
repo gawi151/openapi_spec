@@ -557,6 +557,41 @@ class SchemaGenerator extends BaseGenerator {
   }) {
     final s = schema.mapOrNull(object: (s) => s)!;
 
+    // TODO(lgawron): refactor/simplify this function
+    (Map<String, Schema>, List<String>) getAllOfProps(Schema schema) {
+      var s = schema.mapOrNull(object: (s) => s);
+      if (s == null) return ({}, []);
+      if (s.allOf == null && s.properties == null && s.ref == null) {
+        return ({}, []);
+      }
+      if (s.ref != null) {
+        s = s
+            .dereference(components: spec.components?.schemas)
+            .mapOrNull(object: (s) => s);
+      }
+      final props = <String, Schema>{};
+      final required = <String>[];
+
+      if (s?.properties != null) {
+        props.addAll(s!.properties!);
+      }
+
+      if(s?.required != null){
+        required.addAll(s!.required!);
+      }
+
+      final allOf = s?.allOf;
+      if (allOf != null) {
+        for (final a in allOf) {
+          final (p, r) = getAllOfProps(a);
+          props.addAll(p);
+          required.addAll(r);
+        }
+      }
+
+      return (props, required);
+    }
+
     // Class header
     file.writeAsStringSync("""
     // ==========================================
@@ -578,8 +613,10 @@ class SchemaGenerator extends BaseGenerator {
     String toMap = '';
 
     // Loop through properties
-    final props = s.properties;
-    final propNames = props?.keys.toList() ?? <String>[];
+
+    // TODO(lgawron): properties here are not using references from allOf
+    final (props, required) = getAllOfProps(s);
+    final propNames = props.keys.toList();
     bool firstPass = true;
     List<SchemaValidation> validations = [];
     for (final propName in propNames) {
@@ -589,12 +626,12 @@ class SchemaGenerator extends BaseGenerator {
         firstPass = false;
         file.writeAsStringSync('{', mode: FileMode.append);
       }
-      final prop = props![propName]!;
+      final prop = props[propName]!;
       final v = _writeProperty(
         name: dartName,
         jsonName: propName,
         property: prop,
-        required: s.required?.contains(propName) ?? false,
+        required: required.contains(propName),
       );
       if (v != null && (v.constants.isNotEmpty || v.operations.isNotEmpty)) {
         validations.add(v);

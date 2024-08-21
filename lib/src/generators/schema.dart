@@ -564,24 +564,29 @@ class SchemaGenerator extends BaseGenerator {
       if (s.allOf == null && s.properties == null && s.ref == null) {
         return ({}, []);
       }
-      if (s.ref != null) {
-        s = s
-            .dereference(components: spec.components?.schemas)
-            .mapOrNull(object: (s) => s);
-      }
+
       final props = <String, Schema>{};
       final required = <String>[];
 
-      if (s?.properties != null) {
-        props.addAll(s!.properties!);
+      if (s.properties != null) {
+        props.addAll(s.properties!);
       }
 
-      if(s?.required != null){
-        required.addAll(s!.required!);
+      if (s.required != null) {
+        required.addAll(s.required!);
       }
 
-      final allOf = s?.allOf;
-      if (allOf != null) {
+      if (s.ref != null && s.allOf == null && s.properties == null) {
+        s = s
+            .dereference(components: spec.components?.schemas)
+            .mapOrNull(object: (s) => s);
+        if (s != null) {
+          final (p, r) = getAllOfProps(s);
+          props.addAll(p);
+          required.addAll(r);
+        }
+      } else if (s.allOf != null) {
+        final allOf = s.allOf!;
         for (final a in allOf) {
           final (p, r) = getAllOfProps(a);
           props.addAll(p);

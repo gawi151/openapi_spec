@@ -760,7 +760,7 @@ class $clientName {
           String qCode = p.schema.maybeMap(
             enumeration: (o) {
               // Convert enum to string for query parameter code
-              if (pType == 'String') {
+              if (pType == 'String' || pType == 'String?') {
                 return "'${p.name}': ${pName.camelCase}";
               } else {
                 return "'${p.name}': ${pName.camelCase}.name";
@@ -780,7 +780,7 @@ class $clientName {
             },
             enumeration: (value) {
               if (pDefaultValue != null) {
-                if (p.schema.ref != null && pType != 'String') {
+                if (p.schema.ref != null && (pType != 'String' || pType != 'String?')) {
                   pDefaultValue = '${p.schema.ref}.$pDefaultValue';
                 } else {
                   pDefaultValue = "'$pDefaultValue'";
@@ -788,13 +788,19 @@ class $clientName {
               }
             },
           );
+
+          final isNullable = p.schema.nullable == true;
+          final hasDefaultValue = pDefaultValue != null;
+          final isNullableType = pType.contains('?');
+          if ((!hasDefaultValue && !isNullableType) || isNullable) {
+            // make sure we have a nullable type
+            pType = isNullableType ? pType : '$pType?';
+            // make sure we don't skip query parameter if value is null
+            qCode = 'if (${pName.camelCase} != null) $qCode';
+          }
+
           if (p.required == true) {
             pType = 'required $pType';
-          } else {
-            if (pDefaultValue == null && !pType.contains('?')) {
-              pType = '$pType?';
-              qCode = 'if (${pName.camelCase} != null) $qCode';
-            }
           }
           if (pDefaultValue != null) {
             input.add('$pType ${pName.camelCase} = $pDefaultValue');

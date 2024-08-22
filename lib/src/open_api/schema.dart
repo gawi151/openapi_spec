@@ -367,7 +367,8 @@ class Schema with _$Schema {
         return s.nullable == true ? 'double?' : 'double';
       },
       enumeration: (s) {
-        return s.ref ?? 'String';
+        final type = s.ref ?? 'String';
+        return s.nullable == true && !type.endsWith('?') ? '$type?' : type;
       },
       array: (s) {
         final itemType = s.items.toDartType();
